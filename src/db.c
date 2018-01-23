@@ -290,22 +290,22 @@ static const struct col_type_map wi_cols_map[] =
   };
 
 /* Sort clauses */
-/* Keep in sync with enum sort_type */
+/* Keep in sync with enum sort_type and indices */
 static const char *sort_clause[] =
   {
     "",
-    "ORDER BY f.title_sort ASC",
-    "ORDER BY f.album_sort ASC, f.disc ASC, f.track ASC",
-    "ORDER BY f.album_artist_sort ASC, f.album_sort ASC, f.disc ASC, f.track ASC",
-    "ORDER BY f.type ASC, f.parent_id ASC, f.special_id ASC, f.title ASC",
-    "ORDER BY f.year ASC",
-    "ORDER BY f.genre ASC",
-    "ORDER BY f.composer_sort ASC",
-    "ORDER BY f.disc ASC",
-    "ORDER BY f.track ASC",
-    "ORDER BY f.virtual_path ASC",
-    "ORDER BY pos ASC",
-    "ORDER BY shuffle_pos ASC",
+    "ORDER BY f.title_sort",
+    "ORDER BY f.album_sort, f.album, f.disc, f.track",
+    "ORDER BY f.album_artist_sort, f.album_artist",
+    "ORDER BY f.type, f.parent_id, f.special_id, f.title",
+    "ORDER BY f.year",
+    "ORDER BY f.genre",
+    "ORDER BY f.composer_sort",
+    "ORDER BY f.disc",
+    "ORDER BY f.track",
+    "ORDER BY f.virtual_path",
+    "ORDER BY pos",
+    "ORDER BY shuffle_pos",
   };
 
 /* Shuffle RNG state */
@@ -1329,7 +1329,7 @@ db_build_query_group_dirs(struct query_params *qp)
 }
 
 static char *
-db_build_query_browse(struct query_params *qp, const char *field, const char *group_field)
+db_build_query_browse(struct query_params *qp, const char *field, const char *sort_field)
 {
   struct query_clause *qc;
   char *count;
@@ -1339,8 +1339,8 @@ db_build_query_browse(struct query_params *qp, const char *field, const char *gr
   if (!qc)
     return NULL;
 
-  count = sqlite3_mprintf("SELECT COUNT(DISTINCT f.%s) FROM files f %s AND f.%s != '';", field, qc->where, field);
-  query = sqlite3_mprintf("SELECT f.%s, f.%s FROM files f %s AND f.%s != '' GROUP BY f.%s %s %s;", field, group_field, qc->where, field, group_field, qc->order, qc->index);
+  count = sqlite3_mprintf("SELECT COUNT(*) FROM (SELECT DISTINCT f.%s, f.%s FROM files f %s);", field, sort_field, qc->where);
+  query = sqlite3_mprintf("SELECT DISTINCT f.%s, f.%s FROM files f %s %s %s;", field, sort_field, qc->where, qc->order, qc->index);
 
   db_free_query_clause(qc);
 
