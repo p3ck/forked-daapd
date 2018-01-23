@@ -1339,8 +1339,8 @@ db_build_query_browse(struct query_params *qp, const char *field, const char *so
   if (!qc)
     return NULL;
 
-  count = sqlite3_mprintf("SELECT COUNT(*) FROM (SELECT DISTINCT f.%s, f.%s FROM files f %s);", field, sort_field, qc->where);
-  query = sqlite3_mprintf("SELECT DISTINCT f.%s, f.%s FROM files f %s %s %s;", field, sort_field, qc->where, qc->order, qc->index);
+  count = sqlite3_mprintf("SELECT COUNT(*) FROM (SELECT DISTINCT f.%s, f.%s FROM files f %s AND f.%s != '');", field, sort_field, qc->where, field);
+  query = sqlite3_mprintf("SELECT DISTINCT f.%s, f.%s FROM files f %s AND f.%s != '' %s %s;", field, sort_field, qc->where, field, qc->order, qc->index);
 
   db_free_query_clause(qc);
 
