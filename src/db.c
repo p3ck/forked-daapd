@@ -1029,7 +1029,10 @@ db_build_query_clause(struct query_params *qp)
 	break;
 
       case I_SUB:
-	qc->index = sqlite3_mprintf("LIMIT %d OFFSET %d", qp->limit, qp->offset);
+	if (qp->limit)
+	  qc->index = sqlite3_mprintf("LIMIT %d OFFSET %d", qp->limit, qp->offset);
+	else
+	  qc->index = sqlite3_mprintf("LIMIT -1 OFFSET %d", qp->offset);
 	break;
 
       case I_NONE:

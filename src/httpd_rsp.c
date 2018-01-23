@@ -526,9 +526,10 @@ rsp_reply_playlist(struct httpd_request *hreq)
 
   if (qp.offset > qp.results)
     records = 0;
-  else if (qp.limit > (qp.results - qp.offset))
-    records = qp.results - qp.offset;
   else
+    records = qp.results - qp.offset;
+
+  if (qp.limit && (records > qp.limit))
     records = qp.limit;
 
   /* We'd use mxmlNewXML(), but then we can't put any attributes
@@ -713,9 +714,10 @@ rsp_reply_browse(struct httpd_request *hreq)
 
   if (qp.offset > qp.results)
     records = 0;
-  else if (qp.limit > (qp.results - qp.offset))
-    records = qp.results - qp.offset;
   else
+    records = qp.results - qp.offset;
+
+  if (qp.limit && (records > qp.limit))
     records = qp.limit;
 
   /* We'd use mxmlNewXML(), but then we can't put any attributes
