@@ -302,7 +302,7 @@ static const struct db_init_query db_init_table_queries[] =
 
 /* Used by Q_GROUP_ALBUMS */
 #define I_SONGALBUMID				\
-  "CREATE INDEX IF NOT EXISTS idx_sali ON files(songalbumid, disabled, media_kind, album_sort, album, disc, track);"
+  "CREATE INDEX IF NOT EXISTS idx_sali ON files(songalbumid, disabled, media_kind, album_sort, disc, track);"
 
 /* Used by Q_GROUP_ARTISTS */
 #define I_STATEMKINDSARI				\
