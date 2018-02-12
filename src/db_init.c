@@ -313,11 +313,11 @@ static const struct db_init_query db_init_table_queries[] =
 
 /* Used by Q_BROWSE_ALBUM */
 #define I_ALBUM					\
-  "CREATE INDEX IF NOT EXISTS idx_album ON files(disabled, album_sort, album, disc, track);"
+  "CREATE INDEX IF NOT EXISTS idx_album ON files(disabled, album_sort, album, media_kind);"
 
 /* Used by Q_BROWSE_ARTIST */
 #define I_ALBUMARTIST				\
-  "CREATE INDEX IF NOT EXISTS idx_albumartist ON files(disabled, album_artist_sort, album_artist);"
+  "CREATE INDEX IF NOT EXISTS idx_albumartist ON files(disabled, album_artist_sort, album_artist, media_kind);"
 
 /* Used by Q_BROWSE_COMPOSERS */
 #define I_COMPOSER				\
@@ -325,7 +325,7 @@ static const struct db_init_query db_init_table_queries[] =
 
 /* Used by Q_BROWSE_GENRES */
 #define I_GENRE					\
-  "CREATE INDEX IF NOT EXISTS idx_genre ON files(disabled, genre, genre, media_kind);"
+  "CREATE INDEX IF NOT EXISTS idx_genre ON files(disabled, genre, media_kind);"
 
 /* Used by Q_PLITEMS for smart playlists */
 #define I_TITLE					\

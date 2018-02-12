@@ -664,22 +664,18 @@ rsp_reply_browse(struct httpd_request *hreq)
   if (strcmp(hreq->uri_parsed->path_parts[3], "artist") == 0)
     {
       qp.type = Q_BROWSE_ARTISTS;
-      qp.sort = S_ARTIST;
     }
   else if (strcmp(hreq->uri_parsed->path_parts[3], "genre") == 0)
     {
       qp.type = Q_BROWSE_GENRES;
-      qp.sort = S_GENRE;
     }
   else if (strcmp(hreq->uri_parsed->path_parts[3], "album") == 0)
     {
       qp.type = Q_BROWSE_ALBUMS;
-      qp.sort = S_ALBUM;
     }
   else if (strcmp(hreq->uri_parsed->path_parts[3], "composer") == 0)
     {
       qp.type = Q_BROWSE_COMPOSERS;
-      qp.sort = S_COMPOSER;
     }
   else
     {

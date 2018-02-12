@@ -77,7 +77,8 @@ struct col_type_map {
 
 struct query_clause {
   char *where;
-  const char *order;
+  char *group;
+  char *order;
   char *index;
 };
 
@@ -289,23 +290,41 @@ static const struct col_type_map wi_cols_map[] =
     { wi_offsetof(path),   DB_TYPE_STRING },
   };
 
-/* Sort clauses */
+/* Sort clauses, used for ORDER BY */
 /* Keep in sync with enum sort_type and indices */
 static const char *sort_clause[] =
   {
     "",
-    "ORDER BY f.title_sort",
-    "ORDER BY f.album_sort, f.album, f.disc, f.track",
-    "ORDER BY f.album_artist_sort, f.album_artist",
-    "ORDER BY f.type, f.parent_id, f.special_id, f.title",
-    "ORDER BY f.year",
-    "ORDER BY f.genre",
-    "ORDER BY f.composer_sort",
-    "ORDER BY f.disc",
-    "ORDER BY f.track",
-    "ORDER BY f.virtual_path",
-    "ORDER BY pos",
-    "ORDER BY shuffle_pos",
+    "f.title_sort",
+    "f.album_sort, f.album, f.disc, f.track",
+    "f.album_artist_sort, f.album_artist",
+    "f.type, f.parent_id, f.special_id, f.title",
+    "f.year",
+    "f.genre",
+    "f.composer_sort, f.composer",
+    "f.disc",
+    "f.track",
+    "f.virtual_path",
+    "pos",
+    "shuffle_pos",
+  };
+
+/* Browse clauses, used for SELECT, WHERE, GROUP BY and for default ORDER BY
+ * Keep in sync with enum query_type and indices
+ * Col 1: for SELECT, Col 2: for WHERE, Col 3: for GROUP BY
+ */
+static const char *browse_clause[][3] =
+  {
+    { "",                                      "",                 "" },
+    { "f.album_artist, f.album_artist_sort",   "f.album_artist",   "f.album_artist_sort, f.album_artist" },
+    { "f.album, f.album_sort",                 "f.album",          "f.album_sort, f.album" },
+    { "f.genre, f.genre",                      "f.genre",          "f.genre" },
+    { "f.composer, f.composer_sort",           "f.composer",       "f.composer_sort, f.composer" },
+    { "f.year, f.year",                        "f.year",           "f.year" },
+    { "f.disc, f.disc",                        "f.disc",           "f.disc" },
+    { "f.track, f.track",                      "f.track",          "f.track" },
+    { "f.virtual_path, f.virtual_path",        "f.virtual_path",   "f.virtual_path" },
+    { "f.path, f.path",                        "f.path",           "f.path" },
   };
 
 /* Shuffle RNG state */
@@ -995,6 +1014,8 @@ db_free_query_clause(struct query_clause *qc)
     return;
 
   sqlite3_free(qc->where);
+  sqlite3_free(qc->group);
+  sqlite3_free(qc->order);
   sqlite3_free(qc->index);
   free(qc);
 }
@@ -1008,15 +1029,20 @@ db_build_query_clause(struct query_params *qp)
   if (!qc)
     goto error;
 
+  if (qp->type & Q_F_BROWSE)
+    qc->group = sqlite3_mprintf("GROUP BY %s", browse_clause[qp->type & ~Q_F_BROWSE][2]);
+
   if (qp->filter)
     qc->where = sqlite3_mprintf("WHERE f.disabled = 0 AND %s", qp->filter);
   else
     qc->where = sqlite3_mprintf("WHERE f.disabled = 0");
 
   if (qp->sort)
-    qc->order = sort_clause[qp->sort];
+    qc->order = sqlite3_mprintf("ORDER BY %s", sort_clause[qp->sort]);
+  else if (qp->type & Q_F_BROWSE)
+    qc->order = sqlite3_mprintf("ORDER BY %s", browse_clause[qp->type & ~Q_F_BROWSE][2]);
   else
-    qc->order = "";
+    qc->order = sqlite3_mprintf("");
 
   switch (qp->idx_type)
     {
@@ -1332,9 +1358,11 @@ db_build_query_group_dirs(struct query_params *qp)
 }
 
 static char *
-db_build_query_browse(struct query_params *qp, const char *field, const char *sort_field)
+db_build_query_browse(struct query_params *qp)
 {
   struct query_clause *qc;
+  const char *where;
+  const char *select;
   char *count;
   char *query;
 
@@ -1342,8 +1370,11 @@ db_build_query_browse(struct query_params *qp, const char *field, const char *so
   if (!qc)
     return NULL;
 
-  count = sqlite3_mprintf("SELECT COUNT(*) FROM (SELECT DISTINCT f.%s, f.%s FROM files f %s AND f.%s != '');", field, sort_field, qc->where, field);
-  query = sqlite3_mprintf("SELECT DISTINCT f.%s, f.%s FROM files f %s AND f.%s != '' %s %s;", field, sort_field, qc->where, field, qc->order, qc->index);
+  select = browse_clause[qp->type & ~Q_F_BROWSE][0];
+  where  = browse_clause[qp->type & ~Q_F_BROWSE][1];
+
+  count = sqlite3_mprintf("SELECT COUNT(*) FROM files f %s AND %s != '' %s;", qc->where, where, qc->group);
+  query = sqlite3_mprintf("SELECT %s FROM files f %s AND %s != '' %s %s %s;", select, qc->where, where, qc->group, qc->order, qc->index);
 
   db_free_query_clause(qc);
 
@@ -1415,53 +1446,22 @@ db_query_start(struct query_params *qp)
 	query = db_build_query_group_dirs(qp);
 	break;
 
-      case Q_BROWSE_ALBUMS:
-	query = db_build_query_browse(qp, "album", "album_sort");
-	break;
-
-      case Q_BROWSE_ARTISTS:
-	query = db_build_query_browse(qp, "album_artist", "album_artist_sort");
-	break;
-
-      case Q_BROWSE_GENRES:
-	query = db_build_query_browse(qp, "genre", "genre");
-	break;
-
-      case Q_BROWSE_COMPOSERS:
-	query = db_build_query_browse(qp, "composer", "composer_sort");
-	break;
-
-      case Q_BROWSE_YEARS:
-	query = db_build_query_browse(qp, "year", "year");
-	break;
-
-      case Q_BROWSE_DISCS:
-	query = db_build_query_browse(qp, "disc", "disc");
-	break;
-
-      case Q_BROWSE_TRACKS:
-	query = db_build_query_browse(qp, "track", "track");
-	break;
-
-      case Q_BROWSE_VPATH:
-	query = db_build_query_browse(qp, "virtual_path", "virtual_path");
-	break;
-
-      case Q_BROWSE_PATH:
-	query = db_build_query_browse(qp, "path", "path");
-	break;
-
       case Q_COUNT_ITEMS:
 	query = db_build_query_count_items(qp);
 	break;
 
       default:
-	DPRINTF(E_LOG, L_DB, "Unknown query type\n");
-	return -1;
+	if (qp->type & Q_F_BROWSE)
+	  query = db_build_query_browse(qp);
+        else
+	  query = NULL;
     }
 
   if (!query)
-    return -1;
+    {
+      DPRINTF(E_LOG, L_DB, "Could not create query, unknown type %d\n", qp->type);
+      return -1;
+    }
 
   DPRINTF(E_DBG, L_DB, "Starting query '%s'\n", query);
 
@@ -1812,12 +1812,6 @@ db_query_fetch_string(struct query_params *qp, char **string)
   if (!qp->stmt)
     {
       DPRINTF(E_LOG, L_DB, "Query not started!\n");
-      return -1;
-    }
-
-  if (!(qp->type & Q_F_BROWSE))
-    {
-      DPRINTF(E_LOG, L_DB, "Not a browse query!\n");
       return -1;
     }
 
@@ -4463,7 +4457,7 @@ db_queue_add_item(struct db_queue_item *queue_item, char reshuffle, uint32_t ite
 static int
 queue_enum_start(struct query_params *qp)
 {
-#define Q_TMPL "SELECT * FROM queue f WHERE %s %s;"
+#define Q_TMPL "SELECT * FROM queue f WHERE %s ORDER BY %s;"
   sqlite3_stmt *stmt;
   char *query;
   const char *orderby;
